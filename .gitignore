@@ -46,8 +46,12 @@ backend/*.log
 # Data, downloads & large assets
 data/
 downloads/
+fabricpandas/
 *.sqlite3
 *.db
+run_cli.py 
+run.py 
+core.py
 
 # Logs, temp files
 *.log
@@ -74,6 +78,7 @@ credentials.json
 ~$*
 
 # Docker / Misc
+infrastructure/
 .docker/
 *.class
 *.jar

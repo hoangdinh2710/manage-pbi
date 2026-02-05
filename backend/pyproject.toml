@@ -1,0 +1,10 @@
+[project]
+name = "powerbi-backend"
+version = "0.1.0"
+description = "FastAPI backend for managing Power BI objects"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["backend/tests"]

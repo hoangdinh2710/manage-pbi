@@ -1,0 +1,83 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.python-version
+venv/
+env/
+.venv/
+.env
+.env.*
+pip-wheel-metadata/
+
+# IDEs / Editors
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Node / Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+pnpm-lock.yaml
+/dist/
+/build/
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# Backend specifics
+backend/.venv/
+backend/__pycache__/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/*.log
+
+# Data, downloads & large assets
+data/
+downloads/
+*.sqlite3
+*.db
+
+# Logs, temp files
+*.log
+logs/
+*.bak
+*.tmp
+*.swp
+
+# OS generated
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Secrets and credentials
+config/settings.json
+secrets.json
+credentials.json
+*.pem
+*.key
+*.crt
+
+# OneDrive / Office temp files
+~$*
+
+# Docker / Misc
+.docker/
+*.class
+*.jar
+
+# Note: Adding entries here does not remove files already tracked by git.
+# To stop tracking a file already committed (for example `config/settings.json`),
+# run: `git rm --cached path/to/file` then commit the change.

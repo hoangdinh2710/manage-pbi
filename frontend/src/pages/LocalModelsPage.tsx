@@ -1,5 +1,26 @@
 import { useState, useEffect } from "react";
+import {
+  Upload,
+  RotateCcw,
+  Download,
+  RefreshCw,
+  Search,
+  FolderOpen,
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+  Plus,
+  X,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Play,
+  Check,
+  FileText,
+} from "lucide-react";
 import { artifactsApi, semanticModelApi } from "../services/apiClient";
+import { Button, Spinner, Modal, ConfirmModal } from "../components/ui";
+import { useToast } from "../components/ui";
 import type {
   LocalWorkspace,
   LocalSemanticModel,
@@ -14,6 +35,8 @@ type ActionType = "deploy" | "update_keywords" | "revert" | "download";
 type OperationStatus = "pending" | "processing" | "success" | "failed";
 
 export default function LocalModelsPage() {
+  const toast = useToast();
+  
   // Core state
   const [workspaces, setWorkspaces] = useState<LocalWorkspace[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +68,6 @@ export default function LocalModelsPage() {
 
   // Folder opening state
   const [openingFolder, setOpeningFolder] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Load local models
   const loadLocalModels = async () => {
@@ -73,10 +95,10 @@ export default function LocalModelsPage() {
     try {
       setOpeningFolder(artifactId);
       await artifactsApi.openLocalFolder(artifactId, workspaceId);
-      showToast('success', 'Folder opened in Explorer');
+      toast.success('Folder opened in Explorer');
     } catch (err: any) {
       const errorMsg = err.response?.data?.error || err.message || "Failed to open folder";
-      showToast('error', errorMsg);
+      toast.error(errorMsg);
     } finally {
       setOpeningFolder(null);
     }
@@ -86,18 +108,13 @@ export default function LocalModelsPage() {
     try {
       setOpeningFolder(workspaceId);
       await artifactsApi.openWorkspaceFolder(workspaceId);
-      showToast('success', 'Workspace folder opened in Explorer');
+      toast.success('Workspace folder opened in Explorer');
     } catch (err: any) {
       const errorMsg = err.response?.data?.error || err.message || "Failed to open folder";
-      showToast('error', errorMsg);
+      toast.error(errorMsg);
     } finally {
       setOpeningFolder(null);
     }
-  };
-
-  const showToast = (type: 'success' | 'error', text: string) => {
-    setToastMessage({ type, text });
-    setTimeout(() => setToastMessage(null), 3000);
   };
 
   // Selection handlers
@@ -531,18 +548,18 @@ export default function LocalModelsPage() {
     }
   };
 
-  const getStatusIcon = (status: OperationStatus): string => {
+  const getStatusIcon = (status: OperationStatus): React.ReactNode => {
     switch (status) {
       case "pending":
-        return "⏳";
+        return <Clock size={20} className="status-icon pending" />;
       case "processing":
-        return "🔄";
+        return <Loader2 size={20} className="status-icon processing button-spinner" />;
       case "success":
-        return "✅";
+        return <CheckCircle size={20} className="status-icon success" style={{ color: "var(--color-success)" }} />;
       case "failed":
-        return "❌";
+        return <XCircle size={20} className="status-icon failed" style={{ color: "var(--color-error)" }} />;
       default:
-        return "⏳";
+        return <Clock size={20} className="status-icon pending" />;
     }
   };
 
@@ -950,26 +967,22 @@ export default function LocalModelsPage() {
                             </td>
                             <td style={{ padding: "0.75rem", textAlign: "center" }}>
                               {model.has_backup ? (
-                                <span style={{ color: "green" }}>✓ Yes</span>
+                                <span style={{ color: "var(--color-success)", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                                  <Check size={14} /> Yes
+                                </span>
                               ) : (
-                                <span style={{ color: "#999" }}>No</span>
+                                <span style={{ color: "var(--color-text-tertiary)" }}>No</span>
                               )}
                             </td>
                             <td style={{ padding: "0.75rem", textAlign: "center" }}>
                               <button
+                                className="button ghost sm"
                                 onClick={() => handleOpenArtifactFolder(model.artifact_id, workspace.workspace_id)}
                                 disabled={openingFolder === model.artifact_id}
                                 title="Open folder in Explorer"
-                                style={{
-                                  padding: "0.25rem 0.5rem",
-                                  backgroundColor: "transparent",
-                                  border: "1px solid #ddd",
-                                  borderRadius: "4px",
-                                  cursor: openingFolder === model.artifact_id ? "wait" : "pointer",
-                                  fontSize: "1.2rem",
-                                }}
+                                style={{ minHeight: "32px", padding: "0.25rem 0.5rem" }}
                               >
-                                {openingFolder === model.artifact_id ? "⏳" : "📁"}
+                                {openingFolder === model.artifact_id ? <Loader2 size={16} className="button-spinner" /> : <FolderOpen size={16} />}
                               </button>
                             </td>
                           </tr>
@@ -1132,7 +1145,7 @@ export default function LocalModelsPage() {
                       gap: "0.5rem",
                     }}
                   >
-                    <span style={{ fontSize: "1.5rem" }}>{icon}</span>
+                    <span style={{ display: "flex", alignItems: "center" }}>{icon}</span>
                     <div style={{ flex: 1 }}>
                       <div>{model.modelName}</div>
                       {result?.error && (
@@ -1146,12 +1159,12 @@ export default function LocalModelsPage() {
 
             <div style={{ marginTop: "1rem" }}>
               <strong>Summary:</strong>
-              <div style={{ marginTop: "0.5rem" }}>
-                <span style={{ color: "green", marginRight: "1rem" }}>
-                  ✅ Successful: {progressResults.filter((r) => r.status === "success").length}
+              <div style={{ marginTop: "0.5rem", display: "flex", gap: "1rem" }}>
+                <span style={{ color: "var(--color-success)", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <CheckCircle size={16} /> Successful: {progressResults.filter((r) => r.status === "success").length}
                 </span>
-                <span style={{ color: "red" }}>
-                  ❌ Failed: {progressResults.filter((r) => r.status === "failed").length}
+                <span style={{ color: "var(--color-error)", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <XCircle size={16} /> Failed: {progressResults.filter((r) => r.status === "failed").length}
                 </span>
               </div>
             </div>
@@ -1176,24 +1189,6 @@ export default function LocalModelsPage() {
         </div>
       )}
 
-      {/* Toast notification */}
-      {toastMessage && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "2rem",
-            right: "2rem",
-            padding: "1rem 1.5rem",
-            backgroundColor: toastMessage.type === 'success' ? "#4CAF50" : "#f44336",
-            color: "white",
-            borderRadius: "4px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-            zIndex: 9999,
-          }}
-        >
-          {toastMessage.text}
-        </div>
-      )}
     </div>
   );
 }

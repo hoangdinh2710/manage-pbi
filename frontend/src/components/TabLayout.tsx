@@ -1,15 +1,31 @@
 import React from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
+import {
+  LayoutDashboard,
+  Download,
+  FileSpreadsheet,
+  Database,
+  Settings,
+  BarChart3,
+} from "lucide-react";
+import clsx from "clsx";
+
+interface TabItem {
+  path: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number }>;
+  exact?: boolean;
+}
 
 const TabLayout: React.FC = () => {
   const location = useLocation();
 
-  const tabs = [
-    { path: "/", label: "Dashboard", exact: true },
-    { path: "/download", label: "Download" },
-    { path: "/bulk-edit", label: "Bulk Edit" },
-    { path: "/local-models", label: "Local Models" },
-    { path: "/settings", label: "Settings" },
+  const tabs: TabItem[] = [
+    { path: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
+    { path: "/download", label: "Download", icon: Download },
+    { path: "/bulk-edit", label: "Bulk Edit", icon: FileSpreadsheet },
+    { path: "/local-models", label: "Local Models", icon: Database },
+    { path: "/settings", label: "Settings", icon: Settings },
   ];
 
   const isActive = (path: string, exact: boolean = false) => {
@@ -23,17 +39,30 @@ const TabLayout: React.FC = () => {
     <div className="tab-layout">
       <header className="header">
         <div className="header-content">
-          <h1>PowerBI Commander</h1>
-          <nav className="tab-navigation">
-            {tabs.map((tab) => (
-              <Link
-                key={tab.path}
-                to={tab.path}
-                className={`tab-item ${isActive(tab.path, tab.exact) ? "active" : ""}`}
-              >
-                {tab.label}
-              </Link>
-            ))}
+          <div className="header-top">
+            <div className="header-logo" aria-hidden="true">
+              <BarChart3 size={20} />
+            </div>
+            <h1>PowerBI Commander</h1>
+          </div>
+          <nav className="tab-navigation" role="tablist" aria-label="Main navigation">
+            {tabs.map((tab) => {
+              const TabIcon = tab.icon;
+              const active = isActive(tab.path, tab.exact);
+              return (
+                <Link
+                  key={tab.path}
+                  to={tab.path}
+                  className={clsx("tab-item", { active })}
+                  role="tab"
+                  aria-selected={active}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <TabIcon size={18} />
+                  <span>{tab.label}</span>
+                </Link>
+              );
+            })}
           </nav>
         </div>
       </header>

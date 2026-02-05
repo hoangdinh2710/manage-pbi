@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
+import { Download, X, AlertCircle, CheckCircle, Package } from "lucide-react";
 import { apiClient } from "../services/apiClient";
 import { HierarchicalWorkspaceSelector } from "../components/HierarchicalWorkspaceSelector";
+import { Button, Spinner } from "../components/ui";
+import { useToast } from "../components/ui";
 
 interface Workspace {
   id: string;
@@ -17,6 +20,7 @@ interface SelectedModel {
 }
 
 export function DownloadPage() {
+  const { success: showSuccess, error: showError } = useToast();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [selectedModels, setSelectedModels] = useState<SelectedModel[]>([]);
   const [selectedWorkspaceIds, setSelectedWorkspaceIds] = useState<string[]>([]);
@@ -24,7 +28,7 @@ export function DownloadPage() {
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<string | null>(null);
 
   useEffect(() => {
     fetchWorkspaces();
@@ -44,11 +48,9 @@ export function DownloadPage() {
   };
 
   const handleWorkspaceSelect = (workspaceId: string, workspaceName: string, models: any[]) => {
-    // Toggle workspace selection
     const isSelected = selectedWorkspaceIds.includes(workspaceId);
     
     if (isSelected) {
-      // Deselect workspace and remove all its models
       setSelectedWorkspaceIds(prev => prev.filter(id => id !== workspaceId));
       setSelectedModels(prev => prev.filter(m => m.workspaceId !== workspaceId));
       setWorkspaceOnlySelections(prev => {
@@ -57,11 +59,9 @@ export function DownloadPage() {
         return newSet;
       });
     } else {
-      // Select workspace
       setSelectedWorkspaceIds(prev => [...prev, workspaceId]);
       
       if (models && models.length > 0) {
-        // Models are loaded, add them to selection
         const modelsToAdd = models.map(model => ({
           workspaceId,
           modelId: model.id,
@@ -78,25 +78,20 @@ export function DownloadPage() {
           return newSet;
         });
       } else {
-        // Models not loaded yet - mark for lazy evaluation
         setWorkspaceOnlySelections(prev => new Set(prev).add(workspaceId));
       }
     }
     setError(null);
-    setSuccess(null);
   };
 
   const handleModelSelect = (workspaceId: string, modelId: string, workspaceName?: string, modelName?: string) => {
-    // Toggle selection
     const existingIndex = selectedModels.findIndex(
       m => m.workspaceId === workspaceId && m.modelId === modelId
     );
     
     if (existingIndex >= 0) {
-      // Remove from selection
       setSelectedModels(prev => prev.filter((_, i) => i !== existingIndex));
     } else {
-      // Add to selection
       setSelectedModels(prev => [
         ...prev,
         {
@@ -108,7 +103,12 @@ export function DownloadPage() {
       ]);
     }
     setError(null);
-    setSuccess(null);
+  };
+
+  const handleRemoveModel = (workspaceId: string, modelId: string) => {
+    setSelectedModels(prev => prev.filter(
+      m => !(m.workspaceId === workspaceId && m.modelId === modelId)
+    ));
   };
 
   const handleDownload = async () => {
@@ -119,17 +119,17 @@ export function DownloadPage() {
 
     setDownloading(true);
     setError(null);
-    setSuccess(null);
+    setDownloadProgress("Preparing download...");
 
     const results: { success: string[]; failed: string[] } = { success: [], failed: [] };
 
     try {
-      // First, fetch models for workspace-only selections
       const workspaceModelsToDownload: SelectedModel[] = [];
       
       for (const workspaceId of Array.from(workspaceOnlySelections)) {
         try {
           const workspace = workspaces.find(w => w.id === workspaceId);
+          setDownloadProgress(`Fetching models from ${workspace?.name || workspaceId}...`);
           const modelsResponse = await apiClient.get(`/workspaces/${workspaceId}/semantic-models`);
           const models = modelsResponse.data;
           
@@ -146,24 +146,26 @@ export function DownloadPage() {
         }
       }
 
-      // Combine explicitly selected models with workspace models
       const allModelsToDownload = [...selectedModels, ...workspaceModelsToDownload];
 
       if (allModelsToDownload.length === 0) {
         setError("No models found in selected workspaces");
         setDownloading(false);
+        setDownloadProgress(null);
         return;
       }
 
-      // Download all models
+      let current = 0;
       for (const model of allModelsToDownload) {
+        current++;
+        setDownloadProgress(`Downloading ${current}/${allModelsToDownload.length}: ${model.modelName}`);
+        
         try {
           const response = await apiClient.get(
             `/workspaces/${model.workspaceId}/semantic-models/${model.modelId}/download`,
             { responseType: "blob" }
           );
 
-          // Extract filename from Content-Disposition header
           const contentDisposition = response.headers["content-disposition"];
           let filename = `${model.modelName}.zip`;
           if (contentDisposition) {
@@ -173,7 +175,6 @@ export function DownloadPage() {
             }
           }
 
-          // Create download link
           const url = window.URL.createObjectURL(new Blob([response.data]));
           const link = document.createElement("a");
           link.href = url;
@@ -184,8 +185,6 @@ export function DownloadPage() {
           window.URL.revokeObjectURL(url);
 
           results.success.push(model.modelName);
-
-          // Small delay between downloads to avoid overwhelming the browser
           await new Promise(resolve => setTimeout(resolve, 500));
         } catch (err: any) {
           results.failed.push(model.modelName);
@@ -193,32 +192,46 @@ export function DownloadPage() {
       }
 
       if (results.failed.length === 0) {
-        setSuccess(`Successfully downloaded ${results.success.length} model(s)`);
+        showSuccess(`Successfully downloaded ${results.success.length} model(s)`);
       } else if (results.success.length === 0) {
-        setError(`Failed to download all ${results.failed.length} model(s)`);
+        showError(`Failed to download all ${results.failed.length} model(s)`);
       } else {
-        setSuccess(
-          `Downloaded ${results.success.length} model(s). Failed: ${results.failed.length}`
-        );
+        showSuccess(`Downloaded ${results.success.length} model(s). Failed: ${results.failed.length}`);
       }
     } catch (err: any) {
-      setError("Failed to process download request");
+      showError("Failed to process download request");
     } finally {
       setDownloading(false);
-      setTimeout(() => setSuccess(null), 8000);
+      setDownloadProgress(null);
     }
   };
 
+  const totalSelected = selectedModels.length + workspaceOnlySelections.size;
+
   return (
     <div className="download-page">
-      <h1>Download Semantic Models</h1>
-      <p className="subtitle">Select workspace(s) and semantic model(s) to download</p>
+      <div className="page-header">
+        <h1>Download Semantic Models</h1>
+        <p className="subtitle">Select workspace(s) and semantic model(s) to download</p>
+      </div>
 
       <div className="download-container">
+        {error && (
+          <div className="error-state">
+            <AlertCircle size={20} className="error-state-icon" />
+            <div className="error-state-content">
+              <div className="error-state-message">{error}</div>
+            </div>
+          </div>
+        )}
+
         <div className="selection-section">
-          {(selectedModels.length > 0 || workspaceOnlySelections.size > 0) && (
-            <div style={{ marginBottom: "1rem", fontSize: "0.9rem", color: "#0078d4" }}>
-              {selectedModels.length} individual model(s) + {workspaceOnlySelections.size} workspace(s) selected
+          {totalSelected > 0 && (
+            <div className="selection-summary">
+              <Package size={18} />
+              <span>
+                <strong>{selectedModels.length}</strong> model(s) + <strong>{workspaceOnlySelections.size}</strong> workspace(s) selected
+              </span>
             </div>
           )}
 
@@ -235,27 +248,23 @@ export function DownloadPage() {
           />
 
           {selectedModels.length > 0 && (
-            <div className="selected-models-summary" style={{ 
-              marginTop: "1rem", 
-              padding: "1rem", 
-              backgroundColor: "#f5f5f5", 
-              borderRadius: "4px" 
-            }}>
-              <h4>Selected Models ({selectedModels.length}):</h4>
-              <ul style={{ marginTop: "0.5rem", paddingLeft: "1.5rem" }}>
+            <div className="selected-models-panel">
+              <div className="selected-models-header">
+                <h4>Selected Models ({selectedModels.length})</h4>
+              </div>
+              <ul className="selected-models-list">
                 {selectedModels.map(model => (
-                  <li key={`${model.workspaceId}-${model.modelId}`}>
-                    <strong>{model.workspaceName}</strong> - {model.modelName}
+                  <li key={`${model.workspaceId}-${model.modelId}`} className="selected-model-item">
+                    <div className="selected-model-info">
+                      <span className="selected-model-workspace">{model.workspaceName}</span>
+                      <span className="selected-model-name">{model.modelName}</span>
+                    </div>
                     <button
-                      onClick={() => handleModelSelect(model.workspaceId, model.modelId)}
-                      style={{
-                        marginLeft: "0.5rem",
-                        padding: "0.2rem 0.5rem",
-                        fontSize: "0.8rem",
-                        cursor: "pointer"
-                      }}
+                      className="remove-model-btn"
+                      onClick={() => handleRemoveModel(model.workspaceId, model.modelId)}
+                      aria-label={`Remove ${model.modelName}`}
                     >
-                      Remove
+                      <X size={16} />
                     </button>
                   </li>
                 ))}
@@ -265,18 +274,25 @@ export function DownloadPage() {
         </div>
 
         <div className="action-section">
-          <button
-            className="download-button"
+          {downloading && downloadProgress && (
+            <div className="download-progress">
+              <Spinner size="sm" />
+              <span>{downloadProgress}</span>
+            </div>
+          )}
+          
+          <Button
+            variant="primary"
+            size="lg"
+            leftIcon={Download}
             onClick={handleDownload}
-            disabled={(selectedModels.length === 0 && workspaceOnlySelections.size === 0) || downloading}
+            disabled={totalSelected === 0 || downloading}
+            loading={downloading}
           >
             {downloading 
-              ? `Downloading models...` 
-              : `Download All Selected (${selectedModels.length + workspaceOnlySelections.size} items)`}
-          </button>
-
-          {error && <div className="error-message">{error}</div>}
-          {success && <div className="success-message">{success}</div>}
+              ? "Downloading..." 
+              : `Download All Selected (${totalSelected} items)`}
+          </Button>
         </div>
       </div>
     </div>
@@ -284,4 +300,3 @@ export function DownloadPage() {
 }
 
 export default DownloadPage;
-

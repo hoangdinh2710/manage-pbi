@@ -1,5 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
+import { 
+  Download, 
+  Upload, 
+  FileText, 
+  Trash2, 
+  Plus, 
+  FolderOpen, 
+  Loader2, 
+  Play,
+  X 
+} from "lucide-react";
 import { artifactsApi, semanticModelApi } from "../services/apiClient";
+import { Button, Spinner } from "../components/ui";
+import { useToast } from "../components/ui";
 import type {
   BulkImportEntry,
   KeywordMapping,
@@ -139,6 +152,7 @@ function reconcileEntries(
 }
 
 export default function BulkEditPage(): JSX.Element {
+  const toast = useToast();
   const [localData, setLocalData] = useState<LocalWorkspace[]>([]);
   const [entries, setEntries] = useState<BulkImportEntry[]>([]);
   const [loadingLocal, setLoadingLocal] = useState(true);
@@ -152,7 +166,6 @@ export default function BulkEditPage(): JSX.Element {
 
   // Folder opening state
   const [openingFolder, setOpeningFolder] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [actionSummary, setActionSummary] = useState<ActionSummary>(initialSummary);
   const [processingAction, setProcessingAction] = useState(false);
   const [downloadingMissing, setDownloadingMissing] = useState(false);
@@ -226,18 +239,13 @@ export default function BulkEditPage(): JSX.Element {
     try {
       setOpeningFolder(artifactId);
       await artifactsApi.openLocalFolder(artifactId, workspaceId);
-      showToast('success', 'Folder opened in Explorer');
+      toast.success('Folder opened in Explorer');
     } catch (err: any) {
       const errorMsg = err.response?.data?.error || err.message || "Failed to open folder";
-      showToast('error', errorMsg);
+      toast.error(errorMsg);
     } finally {
       setOpeningFolder(null);
     }
-  };
-
-  const showToast = (type: 'success' | 'error', text: string) => {
-    setToastMessage({ type, text });
-    setTimeout(() => setToastMessage(null), 3000);
   };
 
   const handleFileInput = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -618,12 +626,13 @@ export default function BulkEditPage(): JSX.Element {
           </div>
           <div className="panel-actions">
             <a className="button" href="/bulk_edit_template.csv" download>
-              Download Template
+              <FileText size={16} />
+              <span>Download Template</span>
             </a>
             {entries.length > 0 && (
-              <button className="button link danger" onClick={handleClearAll}>
+              <Button variant="link" className="danger" leftIcon={Trash2} onClick={handleClearAll}>
                 Clear All
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -642,13 +651,15 @@ export default function BulkEditPage(): JSX.Element {
             <span>Missing Locally</span>
           </div>
           <div className="actions">
-            <button
-              className="button ghost"
+            <Button
+              variant="secondary"
+              leftIcon={Download}
               onClick={handleDownloadMissing}
               disabled={missingEntries.length === 0 || downloadingMissing}
+              loading={downloadingMissing}
             >
               {downloadingMissing ? "Downloading..." : "Download Missing"}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -707,20 +718,13 @@ export default function BulkEditPage(): JSX.Element {
                   <td>{entry.error || ""}</td>
                   <td style={{ textAlign: "center" }}>
                     <button
+                      className="button ghost sm"
                       onClick={() => handleOpenArtifactFolder(entry.datasetId, entry.workspaceId)}
                       disabled={!entry.localModel || openingFolder === entry.datasetId}
                       title={entry.localModel ? "Open folder in Explorer" : "Not available locally"}
-                      style={{
-                        padding: "0.25rem 0.5rem",
-                        backgroundColor: "transparent",
-                        border: "1px solid #ddd",
-                        borderRadius: "4px",
-                        cursor: entry.localModel && openingFolder !== entry.datasetId ? "pointer" : "not-allowed",
-                        fontSize: "1.2rem",
-                        opacity: entry.localModel ? 1 : 0.3,
-                      }}
+                      style={{ minHeight: "32px", padding: "0.25rem 0.5rem" }}
                     >
-                      {openingFolder === entry.datasetId ? "⏳" : "📁"}
+                      {openingFolder === entry.datasetId ? <Loader2 size={16} className="button-spinner" /> : <FolderOpen size={16} />}
                     </button>
                   </td>
                 </tr>
@@ -784,21 +788,31 @@ export default function BulkEditPage(): JSX.Element {
                       value={mapping.newValue}
                       onChange={(event) => updateKeywordMapping(mapping.id, "newValue", event.target.value)}
                     />
-                    <button className="button link" onClick={() => removeKeywordMapping(mapping.id)}>
-                      Remove
+                    <button 
+                      className="button ghost sm" 
+                      onClick={() => removeKeywordMapping(mapping.id)}
+                      style={{ minHeight: "32px", padding: "0.25rem 0.5rem" }}
+                    >
+                      <X size={16} />
                     </button>
                   </div>
                 ))}
               </div>
-              <button className="button ghost" onClick={addKeywordMapping}>
+              <Button variant="ghost" leftIcon={Plus} onClick={addKeywordMapping}>
                 Add Mapping
-              </button>
+              </Button>
             </div>
           )}
 
-          <button className="button primary" onClick={executeAction} disabled={processingAction}>
+          <Button 
+            variant="primary" 
+            leftIcon={Play} 
+            onClick={executeAction} 
+            disabled={processingAction || selectedModels.length === 0}
+            loading={processingAction}
+          >
             {processingAction ? "Processing..." : "Run Action"}
-          </button>
+          </Button>
 
           {actionSummary.total > 0 && (
             <div className="action-summary">
@@ -813,24 +827,6 @@ export default function BulkEditPage(): JSX.Element {
         </div>
       </section>
 
-      {/* Toast notification */}
-      {toastMessage && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "2rem",
-            right: "2rem",
-            padding: "1rem 1.5rem",
-            backgroundColor: toastMessage.type === 'success' ? "#4CAF50" : "#f44336",
-            color: "white",
-            borderRadius: "4px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-            zIndex: 9999,
-          }}
-        >
-          {toastMessage.text}
-        </div>
-      )}
     </div>
   );
 }

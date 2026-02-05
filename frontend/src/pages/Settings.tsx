@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
+import { ChevronDown, ChevronRight, Save, RotateCcw, Zap, CheckCircle, AlertCircle } from "lucide-react";
 import { configApi } from "../services/apiClient";
+import { Button, Spinner } from "../components/ui";
+import { useToast } from "../components/ui";
 import type { UserConfig, UserConfigUpdate } from "../types";
 
 export default function Settings() {
+  const { success: showSuccess, error: showError } = useToast();
   const [config, setConfig] = useState<UserConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Form state
@@ -28,7 +31,7 @@ export default function Settings() {
   const [powerbiTenantPresent, setPowerbiTenantPresent] = useState(false);
   const [powerbiClientPresent, setPowerbiClientPresent] = useState(false);
   const [testingPowerbi, setTestingPowerbi] = useState(false);
-  const [powerbiTestResult, setPowerbiTestResult] = useState<string | null>(null);
+  const [powerbiTestResult, setPowerbiTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   useEffect(() => {
     loadConfig();
@@ -41,7 +44,6 @@ export default function Settings() {
       const data = await configApi.getConfig();
       setConfig(data);
       
-      // Populate form
       setDownloadFolder(data.download_folder);
       setNamingStrategy(data.output_naming_strategy);
       setAutoBackup(data.enable_auto_backup);
@@ -50,7 +52,6 @@ export default function Settings() {
       setBulkWorkers(data.parallel_bulk_workers);
       setHttpTimeout(data.http_timeout_seconds);
       setLogLevel(data.log_level);
-      // Power BI fields
       setPowerbiApiBase((data as any).powerbi_api_base || "");
       setPowerbiScope((data as any).powerbi_scope || "");
       setPowerbiTenantPresent(Boolean((data as any).powerbi_tenant_present));
@@ -66,7 +67,6 @@ export default function Settings() {
     try {
       setSaving(true);
       setError(null);
-      setSuccess(false);
 
       const updates: UserConfigUpdate = {
         download_folder: downloadFolder,
@@ -79,7 +79,6 @@ export default function Settings() {
         log_level: logLevel,
       };
 
-      // Attach Power BI fields when provided. client_secret is write-only.
       if (tenantId !== "") updates.tenant_id = tenantId;
       if (clientId !== "") updates.client_id = clientId;
       if (clientSecret !== "") updates.client_secret = clientSecret;
@@ -88,12 +87,9 @@ export default function Settings() {
 
       const updated = await configApi.updateConfig(updates);
       setConfig(updated);
-      setSuccess(true);
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccess(false), 3000);
+      showSuccess("Configuration saved successfully!");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save configuration");
+      showError(err instanceof Error ? err.message : "Failed to save configuration");
     } finally {
       setSaving(false);
     }
@@ -105,12 +101,12 @@ export default function Settings() {
       setPowerbiTestResult(null);
       const res = await configApi.testPowerBi();
       if (res.ok) {
-        setPowerbiTestResult(`OK — token expires in ${res.token_expires_in || 'unknown'}s`);
+        setPowerbiTestResult({ ok: true, message: `Connected — token expires in ${res.token_expires_in || 'unknown'}s` });
       } else {
-        setPowerbiTestResult(`Failed: ${res.error || 'unknown error'}`);
+        setPowerbiTestResult({ ok: false, message: res.error || 'Unknown error' });
       }
     } catch (err) {
-      setPowerbiTestResult(err instanceof Error ? err.message : 'Test failed');
+      setPowerbiTestResult({ ok: false, message: err instanceof Error ? err.message : 'Test failed' });
     } finally {
       setTestingPowerbi(false);
     }
@@ -126,7 +122,6 @@ export default function Settings() {
       setBulkWorkers(config.parallel_bulk_workers);
       setHttpTimeout(config.http_timeout_seconds);
       setLogLevel(config.log_level);
-      // Reset Power BI UI fields (do not populate secret)
       setPowerbiApiBase((config as any).powerbi_api_base || "");
       setPowerbiScope((config as any).powerbi_scope || "");
       setTenantId("");
@@ -137,181 +132,159 @@ export default function Settings() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading configuration...</p>
-        </div>
+      <div className="loading-state">
+        <Spinner size="lg" label="Loading configuration..." />
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">Settings</h1>
+    <div className="settings-page">
+      <div className="page-header">
+        <h1>Settings</h1>
+        <p className="subtitle">Configure application settings and preferences</p>
+      </div>
 
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-red-800">{error}</p>
+      {error && (
+        <div className="error-state">
+          <AlertCircle size={20} className="error-state-icon" />
+          <div className="error-state-content">
+            <div className="error-state-message">{error}</div>
           </div>
-        )}
+        </div>
+      )}
 
-        {success && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
-            <p className="text-green-800">Configuration saved successfully!</p>
-          </div>
-        )}
+      <div className="settings-content">
+        {/* File Operations Section */}
+        <section className="settings-section">
+          <h2 className="settings-section-title">File Operations</h2>
+          
+          <div className="form-grid">
+            <div className="form-field">
+              <label htmlFor="downloadFolder">Download Folder Path</label>
+              <input
+                id="downloadFolder"
+                type="text"
+                value={downloadFolder}
+                onChange={(e) => setDownloadFolder(e.target.value)}
+                placeholder="downloads"
+              />
+              <span className="form-hint">
+                Path where downloaded semantic model definitions will be saved
+              </span>
+            </div>
 
-        <div className="space-y-6">
-          {/* File Operations */}
-          <section>
-            <h2 className="text-lg font-semibold text-gray-700 mb-4">File Operations</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Download Folder Path
-                </label>
-                <input
-                  type="text"
-                  value={downloadFolder}
-                  onChange={(e) => setDownloadFolder(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="downloads"
-                />
-                <p className="mt-1 text-sm text-gray-500">
-                  Path where downloaded semantic model definitions will be saved
-                </p>
-              </div>
+            <div className="form-field">
+              <label htmlFor="namingStrategy">Output Naming Strategy</label>
+              <select
+                id="namingStrategy"
+                value={namingStrategy}
+                onChange={(e) => setNamingStrategy(e.target.value as "model_name" | "model_id")}
+              >
+                <option value="model_name">Model Name</option>
+                <option value="model_id">Model ID</option>
+              </select>
+              <span className="form-hint">Choose how to name downloaded model folders</span>
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Output Naming Strategy
-                </label>
-                <select
-                  value={namingStrategy}
-                  onChange={(e) => setNamingStrategy(e.target.value as "model_name" | "model_id")}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="model_name">Model Name</option>
-                  <option value="model_id">Model ID</option>
-                </select>
-                <p className="mt-1 text-sm text-gray-500">
-                  Choose how to name downloaded model folders
-                </p>
-              </div>
-
-              <div className="flex items-center">
+            <div className="form-field checkbox">
+              <label className="checkbox-label">
                 <input
                   type="checkbox"
-                  id="autoBackup"
                   checked={autoBackup}
                   onChange={(e) => setAutoBackup(e.target.checked)}
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
-                <label htmlFor="autoBackup" className="ml-2 block text-sm text-gray-700">
-                  Enable automatic backups
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Backup Retention (days)
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="365"
-                  value={backupRetention}
-                  onChange={(e) => setBackupRetention(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                />
-                <p className="mt-1 text-sm text-gray-500">
-                  Number of days to retain backup files
-                </p>
-              </div>
+                <span>Enable automatic backups</span>
+              </label>
             </div>
-          </section>
 
-          {/* Performance Settings */}
-          <section>
-            <h2 className="text-lg font-semibold text-gray-700 mb-4">Performance</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Parallel Download Workers: {downloadWorkers}
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  value={downloadWorkers}
-                  onChange={(e) => setDownloadWorkers(parseInt(e.target.value))}
-                  className="w-full"
-                />
-                <p className="mt-1 text-sm text-gray-500">
-                  Number of concurrent downloads (1-10)
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Parallel Bulk Workers: {bulkWorkers}
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  value={bulkWorkers}
-                  onChange={(e) => setBulkWorkers(parseInt(e.target.value))}
-                  className="w-full"
-                />
-                <p className="mt-1 text-sm text-gray-500">
-                  Number of concurrent bulk operations (1-10)
-                </p>
-              </div>
+            <div className="form-field">
+              <label htmlFor="backupRetention">Backup Retention (days)</label>
+              <input
+                id="backupRetention"
+                type="number"
+                min="1"
+                max="365"
+                value={backupRetention}
+                onChange={(e) => setBackupRetention(parseInt(e.target.value))}
+              />
+              <span className="form-hint">Number of days to retain backup files</span>
             </div>
-          </section>
+          </div>
+        </section>
 
-          {/* Advanced Settings */}
-          <section>
-            <button
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center text-lg font-semibold text-gray-700 mb-4 hover:text-blue-600"
-            >
-              <span className="mr-2">{showAdvanced ? "▼" : "▶"}</span>
-              Advanced Settings
-            </button>
+        {/* Performance Section */}
+        <section className="settings-section">
+          <h2 className="settings-section-title">Performance</h2>
+          
+          <div className="form-grid">
+            <div className="form-field">
+              <label htmlFor="downloadWorkers">
+                Parallel Download Workers: <strong>{downloadWorkers}</strong>
+              </label>
+              <input
+                id="downloadWorkers"
+                type="range"
+                min="1"
+                max="10"
+                value={downloadWorkers}
+                onChange={(e) => setDownloadWorkers(parseInt(e.target.value))}
+                className="range-input"
+              />
+              <span className="form-hint">Number of concurrent downloads (1-10)</span>
+            </div>
 
-            {showAdvanced && (
-              <div className="space-y-4 pl-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    HTTP Timeout (seconds)
-                  </label>
+            <div className="form-field">
+              <label htmlFor="bulkWorkers">
+                Parallel Bulk Workers: <strong>{bulkWorkers}</strong>
+              </label>
+              <input
+                id="bulkWorkers"
+                type="range"
+                min="1"
+                max="10"
+                value={bulkWorkers}
+                onChange={(e) => setBulkWorkers(parseInt(e.target.value))}
+                className="range-input"
+              />
+              <span className="form-hint">Number of concurrent bulk operations (1-10)</span>
+            </div>
+          </div>
+        </section>
+
+        {/* Advanced Settings Section */}
+        <section className="settings-section">
+          <button
+            className="settings-section-toggle"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            type="button"
+          >
+            {showAdvanced ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+            <span>Advanced Settings</span>
+          </button>
+
+          {showAdvanced && (
+            <div className="settings-section-content">
+              <div className="form-grid">
+                <div className="form-field">
+                  <label htmlFor="httpTimeout">HTTP Timeout (seconds)</label>
                   <input
+                    id="httpTimeout"
                     type="number"
                     min="5"
                     max="300"
                     value={httpTimeout}
                     onChange={(e) => setHttpTimeout(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                   />
-                  <p className="mt-1 text-sm text-gray-500">
-                    Timeout for HTTP requests (5-300 seconds)
-                  </p>
+                  <span className="form-hint">Timeout for HTTP requests (5-300 seconds)</span>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Log Level
-                  </label>
+                <div className="form-field">
+                  <label htmlFor="logLevel">Log Level</label>
                   <select
+                    id="logLevel"
                     value={logLevel}
                     onChange={(e) => setLogLevel(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="DEBUG">DEBUG</option>
                     <option value="INFO">INFO</option>
@@ -319,119 +292,140 @@ export default function Settings() {
                     <option value="ERROR">ERROR</option>
                     <option value="CRITICAL">CRITICAL</option>
                   </select>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Logging verbosity level
-                  </p>
-                </div>
-
-                {config && (
-                  <div className="bg-gray-50 p-4 rounded-md">
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">Read-Only Settings</h3>
-                    <div className="space-y-2 text-sm text-gray-600">
-                      <p><span className="font-medium">Fabric API Base:</span> {config.fabric_api_base}</p>
-                      <p><span className="font-medium">Max Retries:</span> {config.operation_max_retries}</p>
-                      <p><span className="font-medium">Retry Delay:</span> {config.operation_retry_delay_seconds}s</p>
-                      <p><span className="font-medium">Definition Format:</span> {config.definition_format}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Power BI Credentials */}
-                <div className="mt-4 bg-white p-4 border rounded-md">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Power BI Credentials</h3>
-                  <div className="space-y-3 text-sm">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Tenant ID</label>
-                      <input
-                        type="text"
-                        value={tenantId}
-                        onChange={(e) => setTenantId(e.target.value)}
-                        placeholder={powerbiTenantPresent ? "(already configured)" : ""
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Client ID</label>
-                      <input
-                        type="text"
-                        value={clientId}
-                        onChange={(e) => setClientId(e.target.value)}
-                        placeholder={powerbiClientPresent ? "(already configured)" : ""}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Client Secret</label>
-                      <input
-                        type="password"
-                        value={clientSecret}
-                        onChange={(e) => setClientSecret(e.target.value)}
-                        placeholder="(leave empty to keep current)"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Power BI API Base</label>
-                      <input
-                        type="text"
-                        value={powerbiApiBase}
-                        onChange={(e) => setPowerbiApiBase(e.target.value)}
-                        placeholder="https://api.powerbi.com/v1.0/myorg"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Power BI Scope</label>
-                      <input
-                        type="text"
-                        value={powerbiScope}
-                        onChange={(e) => setPowerbiScope(e.target.value)}
-                        placeholder="https://analysis.windows.net/powerbi/api/.default"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-
-                    <div className="flex items-center space-x-3">
-                      <button
-                        onClick={handleTestPowerbi}
-                        disabled={testingPowerbi}
-                        className="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                      >
-                        {testingPowerbi ? "Testing..." : "Test Power BI Credentials"}
-                      </button>
-                      {powerbiTestResult && (
-                        <div className="text-sm text-gray-700">{powerbiTestResult}</div>
-                      )}
-                    </div>
-                  </div>
+                  <span className="form-hint">Logging verbosity level</span>
                 </div>
               </div>
-            )}
-          </section>
-        </div>
 
-        {/* Action Buttons */}
-        <div className="mt-8 flex justify-end space-x-4">
-          <button
-            onClick={handleReset}
-            disabled={saving}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 disabled:opacity-50"
-          >
-            Reset
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Save Configuration"}
-          </button>
-        </div>
+              {config && (
+                <div className="readonly-settings">
+                  <h3>System Configuration (Read-only)</h3>
+                  <div className="readonly-grid">
+                    <div className="readonly-item">
+                      <span className="readonly-label">Fabric API Base</span>
+                      <span className="readonly-value">{config.fabric_api_base}</span>
+                    </div>
+                    <div className="readonly-item">
+                      <span className="readonly-label">Max Retries</span>
+                      <span className="readonly-value">{config.operation_max_retries}</span>
+                    </div>
+                    <div className="readonly-item">
+                      <span className="readonly-label">Retry Delay</span>
+                      <span className="readonly-value">{config.operation_retry_delay_seconds}s</span>
+                    </div>
+                    <div className="readonly-item">
+                      <span className="readonly-label">Definition Format</span>
+                      <span className="readonly-value">{config.definition_format}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Power BI Credentials */}
+              <div className="credentials-section">
+                <h3>Power BI Credentials</h3>
+                
+                <div className="form-grid">
+                  <div className="form-field">
+                    <label htmlFor="tenantId">Tenant ID</label>
+                    <input
+                      id="tenantId"
+                      type="text"
+                      value={tenantId}
+                      onChange={(e) => setTenantId(e.target.value)}
+                      placeholder={powerbiTenantPresent ? "(already configured)" : "Enter tenant ID"}
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label htmlFor="clientId">Client ID</label>
+                    <input
+                      id="clientId"
+                      type="text"
+                      value={clientId}
+                      onChange={(e) => setClientId(e.target.value)}
+                      placeholder={powerbiClientPresent ? "(already configured)" : "Enter client ID"}
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label htmlFor="clientSecret">Client Secret</label>
+                    <input
+                      id="clientSecret"
+                      type="password"
+                      value={clientSecret}
+                      onChange={(e) => setClientSecret(e.target.value)}
+                      placeholder="(leave empty to keep current)"
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label htmlFor="powerbiApiBase">Power BI API Base</label>
+                    <input
+                      id="powerbiApiBase"
+                      type="text"
+                      value={powerbiApiBase}
+                      onChange={(e) => setPowerbiApiBase(e.target.value)}
+                      placeholder="https://api.powerbi.com/v1.0/myorg"
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label htmlFor="powerbiScope">Power BI Scope</label>
+                    <input
+                      id="powerbiScope"
+                      type="text"
+                      value={powerbiScope}
+                      onChange={(e) => setPowerbiScope(e.target.value)}
+                      placeholder="https://analysis.windows.net/powerbi/api/.default"
+                    />
+                  </div>
+                </div>
+
+                <div className="test-connection">
+                  <Button
+                    variant="secondary"
+                    leftIcon={Zap}
+                    onClick={handleTestPowerbi}
+                    loading={testingPowerbi}
+                  >
+                    {testingPowerbi ? "Testing..." : "Test Connection"}
+                  </Button>
+                  
+                  {powerbiTestResult && (
+                    <div className={`test-result ${powerbiTestResult.ok ? 'success' : 'error'}`}>
+                      {powerbiTestResult.ok ? (
+                        <CheckCircle size={16} />
+                      ) : (
+                        <AlertCircle size={16} />
+                      )}
+                      <span>{powerbiTestResult.message}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="settings-actions">
+        <Button
+          variant="ghost"
+          leftIcon={RotateCcw}
+          onClick={handleReset}
+          disabled={saving}
+        >
+          Reset
+        </Button>
+        <Button
+          variant="primary"
+          leftIcon={Save}
+          onClick={handleSave}
+          loading={saving}
+        >
+          {saving ? "Saving..." : "Save Configuration"}
+        </Button>
       </div>
     </div>
   );

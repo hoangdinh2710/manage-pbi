@@ -2587,6 +2587,97 @@ textarea:focus-visible,
 }
 
 /* ========================================
+   Gateway & Connections
+   ======================================== */
+.gateway-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-6);
+}
+
+.gateway-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+}
+
+.gateway-input-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--spacing-3);
+  align-items: center;
+}
+
+.gateway-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-3);
+  margin-top: var(--spacing-4);
+}
+
+.gateway-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.datasource-name {
+  font-weight: var(--font-weight-semibold);
+}
+
+.datasource-id {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.datasource-connection {
+  max-width: 360px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  word-break: break-word;
+}
+
+.datasource-actions {
+  display: flex;
+  gap: var(--spacing-2);
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.credentials-form textarea {
+  min-height: 120px;
+}
+
+.datasource-users {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.datasource-users-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.user-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.form-field textarea {
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-family: inherit;
+  color: var(--color-text-primary);
+  background-color: var(--color-surface);
+  transition: var(--transition-all);
+  resize: vertical;
+}
+
+/* ========================================
    Print Styles
    ======================================== */
 @media print {

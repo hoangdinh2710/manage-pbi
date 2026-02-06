@@ -5,6 +5,7 @@ from pathlib import Path
 from flask import Blueprint, request, jsonify
 from ..services.fabric_service import FabricService
 from ..services.powerbi_service import PowerBIService
+from ..services.gateway_service import GatewayService
 from ..core.config import get_settings
 from ..utils.storage import validate_artifact_folder, validate_workspace_folder
 from ..core.security import acquire_token
@@ -322,6 +323,106 @@ def list_reports(workspace_id):
         service = PowerBIService()
         data = service.list_reports(workspace_id)
         return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route('/gateways/datasources', methods=['POST'])
+def list_gateway_datasources():
+    """List datasources for one or more gateways."""
+    try:
+        data = request.get_json() or {}
+        gateway_ids = data.get('gateway_ids', [])
+
+        if not isinstance(gateway_ids, list) or not gateway_ids:
+            return jsonify({"error": "gateway_ids must be a non-empty array"}), 400
+
+        service = GatewayService()
+        results = []
+
+        for gateway_id in gateway_ids:
+            if not gateway_id:
+                continue
+            try:
+                datasources = service.list_datasources(gateway_id)
+                results.append({
+                    "gateway_id": gateway_id,
+                    "datasources": datasources,
+                })
+            except Exception as e:
+                results.append({
+                    "gateway_id": gateway_id,
+                    "datasources": [],
+                    "error": str(e),
+                })
+
+        return jsonify({"gateways": results})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route('/gateways/<gateway_id>/datasources/<datasource_id>', methods=['PATCH'])
+def update_gateway_datasource_credentials(gateway_id, datasource_id):
+    """Update datasource credential details."""
+    try:
+        data = request.get_json() or {}
+        credential_details = data.get('credentialDetails') or data.get('credential_details')
+
+        if not credential_details:
+            return jsonify({"error": "credentialDetails is required"}), 400
+
+        service = GatewayService()
+        service.update_datasource_credentials(gateway_id, datasource_id, credential_details)
+
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route('/gateways/<gateway_id>/datasources/<datasource_id>/users', methods=['GET'])
+def list_gateway_datasource_users(gateway_id, datasource_id):
+    """List users for a gateway datasource."""
+    try:
+        service = GatewayService()
+        users = service.list_datasource_users(gateway_id, datasource_id)
+        return jsonify(users)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route('/gateways/<gateway_id>/datasources/<datasource_id>/users', methods=['POST'])
+def add_gateway_datasource_user(gateway_id, datasource_id):
+    """Add a user to a gateway datasource."""
+    try:
+        data = request.get_json() or {}
+        email = data.get('email')
+        access_right = data.get('access_right', 'Read')
+
+        if not email:
+            return jsonify({"error": "email is required"}), 400
+
+        service = GatewayService()
+        service.add_datasource_user(gateway_id, datasource_id, email, access_right)
+
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route('/gateways/<gateway_id>/datasources/<datasource_id>/users', methods=['DELETE'])
+def remove_gateway_datasource_user(gateway_id, datasource_id):
+    """Remove a user from a gateway datasource."""
+    try:
+        data = request.get_json() or {}
+        email = data.get('email')
+
+        if not email:
+            return jsonify({"error": "email is required"}), 400
+
+        service = GatewayService()
+        service.remove_datasource_user(gateway_id, datasource_id, email)
+
+        return jsonify({"status": "success"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

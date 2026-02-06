@@ -191,6 +191,46 @@ export interface ActionLog {
   results: BatchOperationResult[];
 }
 
+export interface GatewayDatasource {
+  id?: string;
+  name?: string;
+  datasourceType?: string;
+  connectionDetails?: string | Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface GatewayDatasourcesResult {
+  gateway_id: string;
+  datasources: GatewayDatasource[];
+  error?: string;
+}
+
+export interface GatewayDatasourcesResponse {
+  gateways: GatewayDatasourcesResult[];
+}
+
+export interface CredentialDetailsInput {
+  credentialType: string;
+  credentials: string;
+  encryptedConnection?: string;
+  encryptionAlgorithm?: string;
+  privacyLevel?: string;
+  useEndUserOAuth2Credentials?: boolean;
+}
+
+export interface DatasourceUser {
+  emailAddress?: string;
+  displayName?: string;
+  principalType?: string;
+  datasourceAccessRight?: string;
+  identifier?: string;
+}
+
+export interface AddDatasourceUserRequest {
+  email: string;
+  access_right?: string;
+}
+
 export type BulkEntryStatus = "local" | "missing" | "downloading" | "downloaded" | "error";
 
 export interface BulkImportEntry {

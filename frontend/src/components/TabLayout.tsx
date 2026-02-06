@@ -5,6 +5,7 @@ import {
   Download,
   FileSpreadsheet,
   Database,
+  Network,
   Settings,
   BarChart3,
 } from "lucide-react";
@@ -25,6 +26,7 @@ const TabLayout: React.FC = () => {
     { path: "/download", label: "Download", icon: Download },
     { path: "/bulk-edit", label: "Bulk Edit", icon: FileSpreadsheet },
     { path: "/local-models", label: "Local Models", icon: Database },
+    { path: "/gateway-connections", label: "Gateway & Connections", icon: Network },
     { path: "/settings", label: "Settings", icon: Settings },
   ];
 

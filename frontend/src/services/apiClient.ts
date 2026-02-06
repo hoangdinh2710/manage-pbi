@@ -1,5 +1,16 @@
 import axios from "axios";
-import type { UserConfig, UserConfigUpdate, DownloadedModel, ValidationResult, UploadResult, ReplacementStats } from "../types";
+import type {
+  UserConfig,
+  UserConfigUpdate,
+  DownloadedModel,
+  ValidationResult,
+  UploadResult,
+  ReplacementStats,
+  GatewayDatasourcesResponse,
+  CredentialDetailsInput,
+  DatasourceUser,
+  AddDatasourceUserRequest,
+} from "../types";
 
 export const apiClient = axios.create({
   baseURL: "/api"
@@ -98,6 +109,59 @@ export const artifactsApi = {
 
   openWorkspaceFolder: async (workspaceId: string) => {
     const response = await apiClient.post<any>(`/workspaces/${workspaceId}/open-folder`);
+    return response.data;
+  },
+};
+
+// Gateway & Connections API
+export const gatewayApi = {
+  listDatasources: async (gatewayIds: string[]): Promise<GatewayDatasourcesResponse> => {
+    const response = await apiClient.post<GatewayDatasourcesResponse>("/gateways/datasources", {
+      gateway_ids: gatewayIds,
+    });
+    return response.data;
+  },
+
+  updateDatasourceCredentials: async (
+    gatewayId: string,
+    datasourceId: string,
+    credentialDetails: CredentialDetailsInput
+  ) => {
+    const response = await apiClient.patch(
+      `/gateways/${gatewayId}/datasources/${datasourceId}`,
+      { credentialDetails }
+    );
+    return response.data;
+  },
+
+  listDatasourceUsers: async (gatewayId: string, datasourceId: string): Promise<DatasourceUser[]> => {
+    const response = await apiClient.get<DatasourceUser[]>(
+      `/gateways/${gatewayId}/datasources/${datasourceId}/users`
+    );
+    return response.data;
+  },
+
+  addDatasourceUser: async (
+    gatewayId: string,
+    datasourceId: string,
+    payload: AddDatasourceUserRequest
+  ) => {
+    const response = await apiClient.post(
+      `/gateways/${gatewayId}/datasources/${datasourceId}/users`,
+      payload
+    );
+    return response.data;
+  },
+
+  removeDatasourceUser: async (
+    gatewayId: string,
+    datasourceId: string,
+    email: string
+  ) => {
+    const response = await apiClient.delete(
+      `/gateways/${gatewayId}/datasources/${datasourceId}/users`,
+      { data: { email } }
+    );
     return response.data;
   },
 };
